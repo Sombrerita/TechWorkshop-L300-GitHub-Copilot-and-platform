@@ -7,4 +7,7 @@
     <UserSecretsId>ae41cc5e-d547-41d2-9cb7-fb0d78e5ef32</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.0" />
+  </ItemGroup>
 </Project>
