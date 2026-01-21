@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: zavastrorefront
+metadata:
+    template: azd-init@1.23.0
+infra:
+    provider: bicep
+    path: infra
+services:
+    src:
+        project: src
+        host: appservice
+        docker:
+            path: src
+            file: Dockerfile
+pipeline:
+    predeploy:
+        steps:
+            # Step 1: Deploy only ACR
+            - run: az deployment group create --resource-group $(azd env get-values --output json | jq -r '.AZURE_RESOURCE_GROUP') --template-file infra/main.bicep --parameters deployAcrOnly=true environment=dev location=$(azd env get-values --output json | jq -r '.AZURE_LOCATION')
+              displayName: Deploy ACR only
+            # Step 2: Push Docker image after ACR is created
+            - run: |
+                    ACR_NAME=$(azd env get-values --output json | jq -r '.ACR_NAME')
+                    docker tag zavastorefront:latest $ACR_NAME.azurecr.io/zavastorefront:latest
+                    az acr login --name $ACR_NAME
+                    docker push $ACR_NAME.azurecr.io/zavastorefront:latest
+              displayName: Tag and push local Docker image to ACR
+    postdeploy:
+        steps:
+            # Step 3: Deploy the rest of the infra (App Service, etc.) referencing the real image
+            - run: az deployment group create --resource-group $(azd env get-values --output json | jq -r '.AZURE_RESOURCE_GROUP') --template-file infra/main.bicep --parameters deployAcrOnly=false environment=dev location=$(azd env get-values --output json | jq -r '.AZURE_LOCATION')
+              displayName: Deploy App Service and other resources
+resources:
+    src:
+        type: host.containerapp
+        port: 80
+    
